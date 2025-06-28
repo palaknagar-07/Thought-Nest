@@ -1,4 +1,4 @@
-#Thought Nest
+## Thought Nest
 
 A beautiful and personal diary application for capturing your thoughts, memories, and daily reflections.
 
@@ -22,7 +22,7 @@ A beautiful and personal diary application for capturing your thoughts, memories
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
+   git clone <https://github.com/palaknagar-07/Thought-Nest.git>
    cd Thought-Nest
    ```
 
