@@ -2,22 +2,34 @@ import { Button } from '@/components/ui/button';
 import { Moon, Sun, Settings, Search, Book } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
+import { UserProfileDropdown } from './UserProfileDropdown';
+import { useAuth } from '@/contexts/AuthContext';
 
-export const NavigationHeader = () => {
+interface NavigationHeaderProps {
+  onOpenProfile: () => void;
+}
+
+export const NavigationHeader = ({ onOpenProfile }: NavigationHeaderProps) => {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const { user, logout } = useAuth();
 
   // Avoid hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+  if (!mounted || !user) {
     return null;
   }
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  const handleLogout = () => {
+    logout();
+    // You can add additional logout logic here
   };
 
   return (
@@ -45,9 +57,11 @@ export const NavigationHeader = () => {
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-            <Settings className="w-4 h-4" />
-          </Button>
+          <UserProfileDropdown 
+            profile={user}
+            onOpenProfile={onOpenProfile}
+            onLogout={handleLogout}
+          />
         </div>
       </div>
     </header>
