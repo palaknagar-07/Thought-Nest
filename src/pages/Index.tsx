@@ -6,9 +6,11 @@ import { WelcomeSection } from '@/components/WelcomeSection';
 import { QuickActions } from '@/components/QuickActions';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { diaryService } from '../../server/services/diaryService';
 
 export interface DiaryEntry {
   id: string;
+  userId: string;
   date: string;
   title: string;
   content: string;
@@ -24,8 +26,28 @@ const Index = () => {
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   const { user, updateUser } = useAuth();
+
+  // Load entries from database
+  useEffect(() => {
+    const loadEntries = async () => {
+      if (user) {
+        try {
+          setIsLoading(true);
+          const userEntries = await diaryService.getEntries(user.id);
+          setEntries(userEntries);
+        } catch (error) {
+          console.error('Error loading entries:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadEntries();
+  }, [user]);
 
   // Calculate stats whenever entries change
   useEffect(() => {
@@ -92,11 +114,21 @@ const Index = () => {
         favoriteTags
       };
 
-      updateUser({
-        ...user,
-        stats: updatedStats,
-        updatedAt: new Date().toISOString()
-      });
+      // Only update if stats have changed
+      const statsChanged =
+        user.stats.totalEntries !== updatedStats.totalEntries ||
+        user.stats.streakDays !== updatedStats.streakDays ||
+        user.stats.longestStreak !== updatedStats.longestStreak ||
+        user.stats.averageMood !== updatedStats.averageMood ||
+        JSON.stringify(user.stats.favoriteTags) !== JSON.stringify(updatedStats.favoriteTags);
+
+      if (statsChanged) {
+        updateUser({
+          ...user,
+          stats: updatedStats,
+          updatedAt: new Date().toISOString()
+        });
+      }
     }
   }, [entries, user, updateUser]);
 
@@ -112,38 +144,69 @@ const Index = () => {
     setIsEntryModalOpen(true);
   };
 
-  const handleSaveEntry = (entryData: Omit<DiaryEntry, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const now = new Date().toISOString();
-    
-    if (editingEntry) {
-      setEntries(prev => prev.map(entry => 
-        entry.id === editingEntry.id 
-          ? { ...entryData, id: editingEntry.id, createdAt: editingEntry.createdAt, updatedAt: now }
-          : entry
-      ));
-    } else {
-      const newEntry: DiaryEntry = {
-        ...entryData,
-        id: crypto.randomUUID(),
-        createdAt: now,
-        updatedAt: now
-      };
-      setEntries(prev => [...prev, newEntry]);
+  const handleSaveEntry = async (entryData: Omit<DiaryEntry, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user) return;
+
+    try {
+      if (editingEntry) {
+        // Update existing entry
+        const updatedEntry = await diaryService.updateEntry(editingEntry.id, {
+          ...entryData,
+          userId: user.id
+        });
+        
+        if (updatedEntry) {
+          setEntries(prev => prev.map(entry => 
+            entry.id === editingEntry.id ? updatedEntry : entry
+          ));
+        }
+      } else {
+        // Create new entry
+        const newEntry = await diaryService.createEntry({
+          ...entryData,
+          userId: user.id
+        });
+        
+        if (newEntry) {
+          setEntries(prev => [...prev, newEntry]);
+        }
+      }
+      
+      setIsEntryModalOpen(false);
+      setEditingEntry(null);
+      setSelectedDate(null);
+    } catch (error) {
+      console.error('Error saving entry:', error);
+      // You might want to show a toast notification here
     }
-    
-    setIsEntryModalOpen(false);
-    setEditingEntry(null);
-    setSelectedDate(null);
   };
 
-  const handleDeleteEntry = (entryId: string) => {
-    setEntries(prev => prev.filter(entry => entry.id !== entryId));
+  const handleDeleteEntry = async (entryId: string) => {
+    try {
+      const success = await diaryService.deleteEntry(entryId);
+      if (success) {
+        setEntries(prev => prev.filter(entry => entry.id !== entryId));
+      }
+    } catch (error) {
+      console.error('Error deleting entry:', error);
+    }
   };
 
   const handleSaveProfile = (profile: any) => {
     updateUser(profile);
     setIsProfileModalOpen(false);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-purple-50 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading your thoughts...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return <div>Loading...</div>;

@@ -61,11 +61,21 @@ export const EntriesListModal = ({ isOpen, onClose, entries, onEntrySelect }: En
                 <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    {format(new Date(entry.date), 'MMM dd, yyyy')}
+                    {(() => {
+                      const date = entry.date ? new Date(entry.date) : null;
+                      return date && !isNaN(date.getTime())
+                        ? format(date, 'MMM dd, yyyy')
+                        : 'Invalid date';
+                    })()}
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    {format(new Date(entry.createdAt), 'HH:mm')}
+                    {(() => {
+                      const createdAt = entry.createdAt ? new Date(entry.createdAt) : null;
+                      return createdAt && !isNaN(createdAt.getTime())
+                        ? format(createdAt, 'HH:mm')
+                        : 'Invalid time';
+                    })()}
                   </div>
                 </div>
                 
